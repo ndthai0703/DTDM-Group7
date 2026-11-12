@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SpamCheck | Kiểm tra tin nhắn SMS spam</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#ebe2d3; --surface:#f8f4ec; --ink:#26231e; --muted:#6e665a; --line:#d6cbb8; --soft:#e2d7c4;
+  --primary:#2b2620; --on-primary:#f8f4ec; --focus:#8a6b3f;
+  --spam:#a4262c; --spam-bg:#f3dad6; --ham:#2f6b4f; --ham-bg:#dce9df; --warn:#8a5a00; --warn-bg:#f1e1b8;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.6 "Montserrat","Avenir Next","Segoe UI",system-ui,sans-serif}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+/* navbar */
+.nav{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.nav-in{max-width:1080px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:32px;min-height:60px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;text-decoration:none}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--primary);display:grid;place-items:center}
+.nav nav{display:flex;gap:4px;align-self:stretch}
+.nav nav a{display:flex;align-items:center;padding:0 14px;text-decoration:none;color:var(--muted);font-weight:500;border-bottom:3px solid transparent;margin-bottom:-1px}
+.nav nav a:hover{color:var(--ink)}
+.nav nav a.on{color:var(--ink);border-bottom-color:var(--primary);font-weight:600}
+.pill{margin-left:auto;font-size:.8rem;font-weight:600;padding:4px 12px;border-radius:999px}
+.pill.mock{background:var(--warn-bg);color:var(--warn)} .pill.live{background:var(--ham-bg);color:var(--ham)}
+/* layout */
+main{max-width:1080px;margin:0 auto;padding:36px 24px 64px}
+h1{font-size:1.75rem;line-height:1.25;margin:0 0 6px;font-weight:700;letter-spacing:-.01em}
+.sub{margin:0 0 28px;color:var(--muted);max-width:62ch}
+h2{font-size:1.05rem;margin:0 0 14px;font-weight:700}
+.col{max-width:780px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:24px}
+label{display:block;font-weight:600;margin-bottom:8px}
+textarea{width:100%;min-height:130px;resize:vertical;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:#fffdf8;color:var(--ink);font:inherit}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.count{margin-left:auto;color:var(--muted);font-size:.85rem}
+button{font:inherit;cursor:pointer;border-radius:8px}
+.btn{background:var(--primary);color:var(--on-primary);border:1px solid var(--primary);padding:10px 22px;font-weight:600}
+.btn:hover{background:#3d362d}
+.btn:disabled{opacity:.55;cursor:wait}
+.btn.ghost{background:transparent;color:var(--ink);border-color:var(--line);padding:8px 14px;font-weight:500;font-size:.875rem}
+.btn.ghost:hover{border-color:var(--ink)}
+.note{margin:14px 0 0;color:var(--muted);font-size:.85rem}
+#status{margin:-8px 0 20px;min-height:0;color:var(--spam);font-weight:600}
+#status:empty{display:none}
+/* result */
+.empty{margin:0;color:var(--muted)}
+.verdict{border-left:5px solid currentColor;padding:2px 0 2px 16px}
+.is-spam{color:var(--spam)} .is-ham{color:var(--ham)}
+.quote{color:var(--ink);white-space:pre-wrap;word-break:break-word;margin:0 0 14px;padding:12px 14px;background:var(--soft);border-radius:8px}
+.v-title{display:flex;align-items:center;gap:10px;font-size:1.3rem;font-weight:700}
+.tag{font-size:.8rem;font-weight:600;padding:2px 12px;border-radius:999px}
+.is-spam .tag{background:var(--spam-bg)} .is-ham .tag{background:var(--ham-bg)}
+.meter{height:10px;background:var(--soft);border-radius:6px;overflow:hidden;margin:12px 0 6px}
+.meter i{display:block;height:100%;width:0;background:currentColor;transition:width .4s ease}
+@media (prefers-reduced-motion:reduce){.meter i{transition:none}}
+dl{margin:14px 0 0;display:grid;grid-template-columns:auto 1fr;gap:6px 24px;font-size:.9rem}
+dt{color:var(--muted)} dd{margin:0;color:var(--ink);font-weight:500}
+/* nút chuyển lọc */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;padding:7px 16px;font-size:.85rem;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--primary);color:var(--on-primary)}
+/* tạo tin ngẫu nhiên */
+.row.gen{margin-top:14px;padding-top:16px;border-top:1px solid var(--line)}
+.hint{color:var(--muted);font-size:.85rem}
+/* history */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
+@media (max-width:760px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.stat b{display:block;font-size:1.7rem;line-height:1.2}
+.stat span{color:var(--muted);font-size:.85rem}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.bar .right{margin-left:auto;display:flex;gap:8px}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;white-space:nowrap}
+td.msg{min-width:260px;max-width:420px}
+td.act{white-space:nowrap;text-align:right}
+.del{background:transparent;border:1px solid var(--line);color:var(--spam);padding:4px 12px;font-size:.8rem;font-weight:500}
+.del:hover{border-color:var(--spam);background:var(--spam-bg)}
+.r-spam{color:var(--spam);font-weight:600} .r-ham{color:var(--ham);font-weight:600}
+/* system */
+ol.flow{margin:0;padding-left:22px} ol.flow li{margin-bottom:8px}
+pre{margin:0 0 14px;padding:14px 16px;background:var(--soft);border-radius:8px;overflow-x:auto;font:13px/1.55 ui-monospace,Menlo,Consolas,monospace}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:24px} @media (max-width:760px){.two{grid-template-columns:1fr}}
+table.svc td:first-child{font-weight:600;white-space:nowrap}
+footer{max-width:1080px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:.8rem}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<header class="nav"><div class="nav-in">
+  <a class="brand" href="#kiem-tra">
+    <span class="logo" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f8f4ec" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>SpamCheck
+  </a>
+  <nav aria-label="Menu chính">
+    <a href="#kiem-tra" data-p="kiem-tra">Kiểm tra</a>
+    <a href="#lich-su" data-p="lich-su">Lịch sử</a>
+    <a href="#he-thong" data-p="he-thong">Hệ thống</a>
+  </nav>
+  <span class="pill" id="pill"></span>
+</div></header>
+
+<main>
+  <!-- Trang 1: kiểm tra -->
+  <section id="p-kiem-tra">
+    <h1>Kiểm tra tin nhắn</h1>
+    <p class="sub">Nhập nội dung một tin nhắn SMS để biết đó là tin spam hay tin bình thường. Kết quả do mô hình AI chạy trên AWS trả về.</p>
+    <div class="col">
+        <div class="card">
+          <label for="msg">Nội dung tin nhắn</label>
+          <textarea id="msg" maxlength="1000" placeholder="Nhập hoặc dán tin nhắn tiếng Anh, hoặc bấm nút tạo tin ngẫu nhiên bên dưới"></textarea>
+          <div class="row">
+            <button id="go" class="btn" type="button">Kiểm tra tin nhắn</button>
+            <button id="clr" class="btn ghost" type="button">Xóa nội dung</button>
+            <span class="count" id="count">0 / 1000</span>
+          </div>
+          <div class="row gen">
+            <span class="hint">Tạo tin để thử:</span>
+            <button id="gen-spam" class="btn ghost" type="button">Tin spam ngẫu nhiên</button>
+            <button id="gen-ham" class="btn ghost" type="button">Tin bình thường ngẫu nhiên</button>
+          </div>
+          <p class="note">Mô hình được huấn luyện trên tin nhắn tiếng Anh, nên hãy nhập tiếng Anh để kết quả đáng tin.</p>
+        </div>
+        <p id="status" role="alert"></p>
+        <div class="card" id="result" aria-live="polite">
+          <h2>Kết quả</h2>
+          <p class="empty" id="res-empty">Chưa có kết quả. Nhập tin nhắn hoặc tạo một tin ngẫu nhiên, rồi bấm Kiểm tra tin nhắn.</p>
+          <div id="res-body" hidden>
+            <p class="quote" id="r-text"></p>
+            <div class="verdict" id="r-box">
+              <div class="v-title"><span id="r-title"></span><span class="tag" id="r-tag"></span></div>
+              <div class="meter" aria-hidden="true"><i id="r-bar"></i></div>
+            </div>
+            <dl>
+              <dt>Độ tin cậy</dt><dd id="r-conf"></dd>
+              <dt>Xử lý trên máy chủ</dt><dd id="r-lat"></dd>
+              <dt>Tổng thời gian chờ</dt><dd id="r-rtt"></dd>
+            </dl>
+          </div>
+        </div>
+    </div>
+  </section>
+
+  <!-- Trang 2: lịch sử -->
+  <section id="p-lich-su" hidden>
+    <h1>Lịch sử kiểm tra</h1>
+    <p class="sub">Các lần kiểm tra gần đây trên trình duyệt này. Lịch sử đầy đủ của hệ thống được lưu trong DynamoDB.</p>
+    <div class="stats">
+      <div class="stat"><b id="s-total">0</b><span>Tổng số lần kiểm tra</span></div>
+      <div class="stat"><b id="s-spam">0</b><span>Tin spam</span></div>
+      <div class="stat"><b id="s-ham">0</b><span>Tin bình thường</span></div>
+      <div class="stat"><b id="s-lat">-</b><span>Xử lý trung bình</span></div>
+    </div>
+    <div class="card">
+      <div class="bar">
+        <div class="seg seg-flt" role="group" aria-label="Lọc kết quả">
+          <button type="button" data-f="all" aria-pressed="true">Tất cả</button>
+          <button type="button" data-f="spam" aria-pressed="false">Spam</button>
+          <button type="button" data-f="ham" aria-pressed="false">Bình thường</button>
+        </div>
+        <div class="right">
+          <button id="csv" class="btn ghost" type="button">Xuất CSV</button>
+          <button id="clear" class="btn ghost" type="button">Xóa lịch sử</button>
+        </div>
+      </div>
+      <p class="empty" id="h-empty">Chưa có lần kiểm tra nào. Quay lại trang Kiểm tra để bắt đầu.</p>
+      <div class="scroll" id="tbl-wrap" hidden>
+        <table>
+          <thead><tr><th>Thời gian</th><th>Tin nhắn</th><th>Kết quả</th><th>Tin cậy</th><th>Xử lý</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Trang 3: hệ thống -->
+  <section id="p-he-thong" hidden>
+    <h1>Hệ thống hoạt động thế nào</h1>
+    <p class="sub">Trang web này chỉ là giao diện. Phần xử lý nằm hoàn toàn trên các dịch vụ AWS.</p>
+    <div class="two">
+      <div class="card">
+        <h2>Luồng dữ liệu</h2>
+        <ol class="flow">
+          <li>Trang web (lưu trên S3) gửi tin nhắn tới API Gateway.</li>
+          <li>API Gateway kích hoạt hàm Lambda.</li>
+          <li>Lambda nạp mô hình từ S3 và dự đoán spam hoặc không.</li>
+          <li>Lambda ghi lần dự đoán vào DynamoDB.</li>
+          <li>Kết quả trả về trang web.</li>
+          <li>CloudWatch ghi số request, độ trễ, lỗi và gửi cảnh báo.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h2>Dịch vụ sử dụng</h2>
+        <table class="svc"><tbody>
+          <tr><td>S3</td><td>Chứa trang web và file mô hình</td></tr>
+          <tr><td>API Gateway</td><td>Nhận yêu cầu, bật CORS, giới hạn lưu lượng</td></tr>
+          <tr><td>Lambda</td><td>Chạy suy luận, tự co giãn khi nhiều người dùng</td></tr>
+          <tr><td>DynamoDB</td><td>Lưu lịch sử mỗi lần dự đoán</td></tr>
+          <tr><td>CloudWatch</td><td>Dashboard và cảnh báo</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Định dạng API</h2>
+      <div class="two">
+        <div><b>Gửi lên: POST /predict</b><pre>{ "text": "nội dung tin nhắn" }</pre></div>
+        <div><b>Nhận về</b><pre>{ "label": "spam",
+  "confidence": 0.98,
+  "latency_ms": 85 }</pre></div>
+      </div>
+      <p class="note" style="margin:0">Khi lỗi, API trả mã 400 kèm { "error": "mô tả lỗi" }.</p>
+    </div>
+  </section>
+</main>
+<footer id="mode"></footer>
+
+<script>
+// Dán URL đầy đủ của API Gateway vào đây, ví dụ:
+// "https://abc123.execute-api.ap-southeast-1.amazonaws.com/predict"
+// Để trống thì trang chạy chế độ giả lập (chưa gọi API thật).
+const API_URL = "";
+
+const $ = id => document.getElementById(id);
+let filter = "all";
+let history = loadHistory();
+const msg = $("msg"), go = $("go"), statusEl = $("status");
+
+function loadHistory() { try { return JSON.parse(localStorage.getItem("spamcheck.history") || "[]").map((h, i) => Object.assign({ id: h.time + "-" + i }, h)); } catch (e) { return []; } }
+function saveHistory() { try { localStorage.setItem("spamcheck.history", JSON.stringify(history)); } catch (e) {} }
+
+/* điều hướng */
+const pages = ["kiem-tra", "lich-su", "he-thong"];
+function route() {
+  let p = location.hash.slice(1);
+  if (!pages.includes(p)) p = "kiem-tra";
+  pages.forEach(x => { $("p-" + x).hidden = x !== p; });
+  document.querySelectorAll(".nav nav a").forEach(a => {
+    const on = a.dataset.p === p;
+    a.classList.toggle("on", on);
+    if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+  if (p === "lich-su") renderHistory();
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
+
+/* tạo tin ngẫu nhiên */
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const digits = n => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join("");
+const phone = () => pick(["0900 ", "0800 ", "0906 "]) + digits(3) + " " + digits(4);
+const money = () => pick(["$", "£"]) + pick(["500", "1,500", "2,000", "5,000", "20,000"]);
+function genSpam() {
+  const prize = pick(["cash prize of " + money(), "brand new phone", "free holiday for two", "shopping voucher worth " + money()]);
+  const body = pick([
+    () => "You have won a " + prize + ". Call " + phone() + " now to claim.",
+    () => "You have been selected for a free " + pick(["holiday voucher", "gift card", "phone upgrade"]) + ". Reply YES to 8" + digits(4) + " to claim today.",
+    () => "Your " + pick(["bank", "PayPal", "delivery"]) + " account has been suspended. Click http://bit.ly/" + Math.random().toString(36).slice(2, 8) + " to verify within 24 hours.",
+    () => "Get a loan of up to " + money() + " approved in 5 minutes, no credit check. Call " + phone() + " now.",
+    () => "Text WIN to 8" + digits(4) + " now for a chance to win a " + prize + ". 16+ only, T&Cs apply.",
+    () => "You owe unpaid fees of " + money() + ". Pay today to avoid legal action. Call " + phone() + " immediately."
+  ])();
+  return pick(["URGENT!", "Congratulations!", "WINNER!", "Final notice:", "Dear customer,", "Alert:"]) + " " + body +
+    pick(["", " Limited offer!", " Offer valid for 12 hours.", " Reply STOP to opt out.", " Don’t miss out!"]);
+}
+function genHam() {
+  const when = pick(["tomorrow", "on Friday", "this weekend", "next Monday"]);
+  const time = pick(["3pm", "6:30pm", "seven", "noon", "9am"]);
+  return pick([
+    () => "Hey, are we still on for " + pick(["lunch", "dinner", "coffee"]) + " " + when + "? Let me know what time works for you.",
+    () => "I’ll be home by " + time + ". Can you pick up some " + pick(["bread", "milk", "rice", "fruit"]) + " on your way back?",
+    () => "Thanks for sending the " + pick(["notes", "slides", "report", "photos"]) + ", it really helped me " + pick(["before the exam", "with my homework", "prepare for the meeting"]) + ".",
+    () => "Meeting moved to " + time + " in room " + pick(["B12", "A204", "C301"]) + ". Please bring the " + pick(["printed report", "laptop", "signed form"]) + ".",
+    () => "Don’t forget to submit the " + pick(["group assignment", "lab report", "project proposal"]) + " before " + pick(["Friday midnight", "Monday morning", "the weekend"]) + ".",
+    () => "Running " + pick(["ten", "fifteen", "twenty"]) + " minutes late, the " + pick(["bus", "train"]) + " is stuck in traffic. Start without me.",
+    () => "Happy birthday " + pick(["Linh", "Minh", "Anna", "Tom"]) + "! Hope you have an amazing day, let’s catch up " + when + ".",
+    () => "Mum says dinner is ready. Are you coming over or should I save you a plate?",
+    () => "Can you send me the " + pick(["notes", "schedule", "address"]) + " when you get a chance? No rush, " + pick(["tomorrow", "Friday"]) + " is fine."
+  ])();
+}
+function fill(t) { msg.value = t; msg.dispatchEvent(new Event("input")); msg.focus(); }
+function gen(kind) {
+  let t;
+  do { t = kind === "spam" ? genSpam() : genHam(); } while (t === msg.value);
+  statusEl.textContent = ""; fill(t);
+}
+$("gen-spam").addEventListener("click", () => gen("spam"));
+$("gen-ham").addEventListener("click", () => gen("ham"));
+
+/* nhập liệu */
+msg.addEventListener("input", () => { $("count").textContent = msg.value.length + " / 1000"; });
+msg.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") check(); });
+$("clr").addEventListener("click", () => { fill(""); statusEl.textContent = ""; });
+go.addEventListener("click", check);
+
+/* dự đoán */
+function mockPredict(text) {
+  const t = text.toLowerCase();
+  const rules = [
+    [/\bfree\b/, 1], [/\b(win|winner|won)\b/, 1.2], [/\bprize\b/, 1.2], [/\burgent\b/, 1.2], [/\bclaim\b/, 1],
+    [/congratulations/, 1], [/call now/, 1], [/reply\b.*\bstop/, 1], [/\b(text|reply|txt)\s+\w+\s+to\s+\d{4,6}\b/, 1.2],
+    [/click/, .8], [/https?:\/\/|bit\.ly|www\./, 1.2], [/\bloan\b/, 1], [/credit/, .6], [/\boffer\b/, .6], [/\bcash\b/, .8],
+    [/[£$]\s?\d/, 1], [/limited/, .6], [/gift/, .6], [/(suspended|verify)/, 1.2], [/(final notice|unpaid|legal action)/, 1.5],
+    [/(singles|\bchat\b)/, .8], [/(voucher|holiday)/, .8], [/(per message|\b\d+p\b)/, .6], [/immediately/, .6],
+    [/\b0\d{3}[\s-]?\d{3}[\s-]?\d{4}\b|\b0\d{4}[\s-]?\d{6}\b|\d{10,}/, 1.2]
+  ];
+  let score = rules.reduce((s, [re, w]) => s + (re.test(t) ? w : 0), 0);
+  score += Math.min(1.2, 0.4 * (text.match(/\b[A-Z]{4,}\b/g) || []).length);
+  if ((text.match(/!/g) || []).length >= 2) score += 0.5;
+  const spam = score >= 2.2;
+  const p = 1 / (1 + Math.exp(-(Math.abs(score - 2.2) + 0.9) * 1.1));
+  const confidence = Math.round(Math.min(0.99, Math.max(0.7, p)) * 100) / 100;
+  return new Promise(r => setTimeout(() => r({
+    label: spam ? "spam" : "ham", confidence, latency_ms: Math.round(40 + Math.random() * 60)
+  }), 400));
+}
+async function callApi(text) {
+  const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+  let data = null;
+  try { data = await res.json(); } catch (e) {}
+  if (data && typeof data.body === "string") { try { data = JSON.parse(data.body); } catch (e) {} }
+  if (!res.ok) throw new Error((data && data.error) || "Máy chủ trả về lỗi " + res.status + ".");
+  if (!data || !data.label) throw new Error("API trả về dữ liệu không đúng định dạng (thiếu label).");
+  return data;
+}
+async function check() {
+  const text = msg.value.trim();
+  statusEl.textContent = "";
+  if (!text) { statusEl.textContent = "Hãy nhập nội dung tin nhắn trước khi kiểm tra."; msg.focus(); return; }
+  go.disabled = true; go.textContent = "Đang kiểm tra...";
+  const t0 = performance.now();
+  try {
+    const data = API_URL ? await callApi(text) : await mockPredict(text);
+    show(text, data, Math.round(performance.now() - t0));
+  } catch (err) {
+    statusEl.textContent = err instanceof TypeError
+      ? "Không kết nối được tới API. Kiểm tra lại URL và cấu hình CORS trên API Gateway."
+      : err.message;
+  } finally { go.disabled = false; go.textContent = "Kiểm tra tin nhắn"; }
+}
+function show(text, d, rtt) {
+  const spam = String(d.label).toLowerCase() === "spam";
+  const pct = Math.round(Number(d.confidence) * 100);
+  $("res-empty").hidden = true; $("res-body").hidden = false;
+  $("r-box").className = "verdict " + (spam ? "is-spam" : "is-ham");
+  $("r-text").textContent = text;
+  $("r-title").textContent = spam ? "Tin spam" : "Tin bình thường";
+  $("r-tag").textContent = spam ? "spam" : "ham";
+  $("r-bar").style.width = pct + "%";
+  $("r-conf").textContent = pct + "%";
+  $("r-lat").textContent = d.latency_ms != null ? d.latency_ms + " ms" : "không có";
+  $("r-rtt").textContent = rtt + " ms";
+  history.unshift({ id: Date.now() + "-" + Math.random().toString(36).slice(2, 7), time: Date.now(), text, spam, pct, lat: d.latency_ms != null ? Number(d.latency_ms) : null });
+  history = history.slice(0, 100); saveHistory();
+}
+
+/* lịch sử */
+function renderHistory() {
+  const spamN = history.filter(h => h.spam).length;
+  const lats = history.map(h => h.lat).filter(v => v != null);
+  $("s-total").textContent = history.length;
+  $("s-spam").textContent = spamN;
+  $("s-ham").textContent = history.length - spamN;
+  $("s-lat").textContent = lats.length ? Math.round(lats.reduce((a, b) => a + b, 0) / lats.length) + " ms" : "-";
+  const list = history.filter(h => filter === "all" || (filter === "spam") === h.spam);
+  const body = $("rows"); body.textContent = "";
+  list.forEach(h => {
+    const tr = document.createElement("tr");
+    [new Date(h.time).toLocaleString("vi-VN"), h.text, h.spam ? "Spam" : "Bình thường", h.pct + "%", h.lat != null ? h.lat + " ms" : "-"]
+      .forEach((v, i) => {
+        const td = document.createElement("td"); td.textContent = v;
+        if (i === 1) td.className = "msg";
+        if (i === 2) td.className = h.spam ? "r-spam" : "r-ham";
+        tr.appendChild(td);
+      });
+    const tdA = document.createElement("td"); tdA.className = "act";
+    const del = document.createElement("button");
+    del.type = "button"; del.className = "del"; del.textContent = "Xóa";
+    del.setAttribute("aria-label", "Xóa tin nhắn này khỏi lịch sử");
+    del.addEventListener("click", () => { history = history.filter(x => x.id !== h.id); saveHistory(); renderHistory(); });
+    tdA.appendChild(del); tr.appendChild(tdA);
+    body.appendChild(tr);
+  });
+  $("tbl-wrap").hidden = list.length === 0;
+  $("h-empty").hidden = list.length > 0;
+  $("h-empty").textContent = history.length ? "Không có dòng nào khớp bộ lọc." : "Chưa có lần kiểm tra nào. Quay lại trang Kiểm tra để bắt đầu.";
+}
+document.querySelectorAll(".seg-flt button").forEach(b => b.addEventListener("click", () => {
+  filter = b.dataset.f;
+  document.querySelectorAll(".seg-flt button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  renderHistory();
+}));
+$("clear").addEventListener("click", () => { history = []; saveHistory(); renderHistory(); });
+$("csv").addEventListener("click", () => {
+  if (!history.length) return;
+  const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const lines = ["time,text,label,confidence,latency_ms"].concat(history.map(h =>
+    [new Date(h.time).toISOString(), q(h.text), h.spam ? "spam" : "ham", h.pct / 100, h.lat != null ? h.lat : ""].join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" }));
+  a.download = "lich-su-spamcheck.csv"; a.click(); URL.revokeObjectURL(a.href);
+});
+
+/* khởi tạo */
+const pill = $("pill");
+pill.textContent = API_URL ? "Đã kết nối API" : "Chế độ giả lập";
+pill.className = "pill " + (API_URL ? "live" : "mock");
+$("mode").textContent = API_URL
+  ? "Đang gọi API: " + new URL(API_URL).host
+  : "Chế độ giả lập: chưa nối API nên kết quả chỉ để thử giao diện. Dán URL API vào biến API_URL trong file để dùng hệ thống thật.";
+route();
+</script>
+</body>
+</html>
