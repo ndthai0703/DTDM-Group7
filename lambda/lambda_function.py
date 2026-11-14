@@ -4,10 +4,13 @@ import math
 import os
 import re
 import time
+import boto3
+import uuid
 
 from collections import Counter
 from pathlib import Path
-
+from datetime import datetime, timezone
+from decimal import Decimal
 
 def load_model():
     bucket = os.environ.get("MODEL_BUCKET")
@@ -166,15 +169,74 @@ def lambda_handler(event, context):
             {"error": str(error)}
         )
 
-    return response(
-        200,
-        {
-            "label": label,
-            "confidence": round(confidence, 6),
-            "processing_ms": round(
-                (time.perf_counter() - started) * 1000,
-                3
-            ),
-            "model_version": MODEL["version"],
-        }
+    result = {
+        "label": label,
+        "confidence": round(confidence, 6),
+        "processing_ms": round(
+            (time.perf_counter() - started) * 1000,
+            3
+        ),
+        "model_version": MODEL["version"],
+    }
+
+    try:
+        metadata = save_history(text, result, context)
+
+    except Exception as error:
+        print(json.dumps({
+            "event": "history_write_failed",
+            "error_type": type(error).__name__,
+        }))
+
+        return response(
+            503,
+            {"error": "Could not save prediction history"}
+        )
+
+    result.update(metadata)
+    result["history_saved"] = True
+
+    result["handler_ms"] = round(
+        (time.perf_counter() - started) * 1000,
+        3
     )
+
+    return response(200, result)
+
+
+HISTORY_TABLE_NAME = os.environ.get("HISTORY_TABLE")
+
+TABLE = (
+    boto3.resource("dynamodb").Table(HISTORY_TABLE_NAME)
+    if HISTORY_TABLE_NAME
+    else None
+)
+
+
+def save_history(text, result, context):
+    if TABLE is None:
+        raise RuntimeError("HISTORY_TABLE is not configured")
+
+    metadata = {
+        "id": (
+            getattr(context, "aws_request_id", None)
+            or str(uuid.uuid4())
+        ),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    item = {
+        **metadata,
+        **result,
+        "text": text,
+    }
+
+    # DynamoDB cần Decimal thay cho float.
+    item = json.loads(
+        json.dumps(item),
+        parse_float=Decimal
+    )
+
+    TABLE.put_item(Item=item)
+
+    return metadata
