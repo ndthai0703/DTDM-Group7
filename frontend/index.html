@@ -226,7 +226,7 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 40px;color:var(--muted);fon
 // Dán URL đầy đủ của API Gateway vào đây, ví dụ:
 // "https://abc123.execute-api.ap-southeast-1.amazonaws.com/predict"
 // Để trống thì trang chạy chế độ giả lập (chưa gọi API thật).
-const API_URL = "";
+const API_URL = "https://wo4pvzpf9k.execute-api.ap-southeast-1.amazonaws.com/predict";
 
 const $ = id => document.getElementById(id);
 let filter = "all";
@@ -327,6 +327,7 @@ async function callApi(text) {
   try { data = await res.json(); } catch (e) {}
   if (data && typeof data.body === "string") { try { data = JSON.parse(data.body); } catch (e) {} }
   if (!res.ok) throw new Error((data && data.error) || "Máy chủ trả về lỗi " + res.status + ".");
+  if (data && data.error) throw new Error("API báo lỗi: " + data.error);
   if (!data || !data.label) throw new Error("API trả về dữ liệu không đúng định dạng (thiếu label).");
   return data;
 }
