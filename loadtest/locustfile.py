@@ -6,8 +6,8 @@ SAMPLES=[
  'Please send me the report before tomorrow.',
  'Congratulations! You won free cash! Claim your prize now.',
  'URGENT winner! Reply YES for a free voucher.',
- 'Tối nay mình họp nhóm lúc 7 giờ nhé',
- 'Chúc mừng bạn nhận giải thưởng, bấm link nhận quà ngay'
+ 'Can you send me the notes after the meeting?',
+ 'Free prize! Call now to claim your cash reward.'
 ]
 class SMSUser(HttpUser):
  wait_time=between(1,3)
@@ -21,6 +21,7 @@ class SMSUser(HttpUser):
     data=response.json()
     if data.get('label') not in ('spam','ham') or not isinstance(data.get('confidence'),(int,float)):
      response.failure('Response thiếu label spam/ham hoặc confidence')
+    elif data.get('history_saved') is not True: response.failure('History was not saved')
     elif not 0<=data['confidence']<=1: response.failure('confidence ngoài [0,1]')
     else:response.success()
    except ValueError:response.failure('Response không phải JSON')

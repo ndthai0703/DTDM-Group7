@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+model.json
+create_demo_model.py
+test_local.py
+events/
+README.md

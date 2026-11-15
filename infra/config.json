@@ -1,0 +1,13 @@
+{
+  "region": "ap-southeast-1",
+  "lambda_function": "btl-aws-spam-function",
+  "ecr_repository": "btl-aws-spam",
+  "model_bucket": "REPLACE_WITH_ACTUAL_BUCKET",
+  "model_key": "models/spam-v1.json",
+  "history_table": "btl-aws-prediction-history",
+  "frontend_origin": "http://REPLACE_WITH_WEBSITE_HOST",
+  "api_url": "https://REPLACE_WITH_API_HOST/predict",
+  "suggested_memory_mb": 512,
+  "suggested_timeout_seconds": 30,
+  "suggested_reserved_concurrency": 20
+}
