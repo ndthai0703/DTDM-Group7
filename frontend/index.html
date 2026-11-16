@@ -229,6 +229,7 @@ footer{max-width:1080px;margin:0 auto;padding:0 24px 40px;color:var(--muted);fon
 const API_URL = "https://wo4pvzpf9k.execute-api.ap-southeast-1.amazonaws.com/predict";
 
 const $ = id => document.getElementById(id);
+const fmtMs = v => (v < 10 ? (Math.round(v * 100) / 100).toLocaleString("vi-VN") : Math.round(v)) + " ms";
 let filter = "all";
 let history = loadHistory();
 const msg = $("msg"), go = $("go"), statusEl = $("status");
@@ -356,9 +357,10 @@ function show(text, d, rtt) {
   $("r-tag").textContent = spam ? "spam" : "ham";
   $("r-bar").style.width = pct + "%";
   $("r-conf").textContent = pct + "%";
-  $("r-lat").textContent = d.latency_ms != null ? d.latency_ms + " ms" : "không có";
+  const lat = d.latency_ms != null ? d.latency_ms : d.processing_time_ms; // API của nhóm trả processing_time_ms
+  $("r-lat").textContent = lat != null ? fmtMs(Number(lat)) : "không có";
   $("r-rtt").textContent = rtt + " ms";
-  history.unshift({ id: Date.now() + "-" + Math.random().toString(36).slice(2, 7), time: Date.now(), text, spam, pct, lat: d.latency_ms != null ? Number(d.latency_ms) : null });
+  history.unshift({ id: Date.now() + "-" + Math.random().toString(36).slice(2, 7), time: Date.now(), text, spam, pct, lat: lat != null ? Number(lat) : null });
   history = history.slice(0, 100); saveHistory();
 }
 
@@ -369,12 +371,12 @@ function renderHistory() {
   $("s-total").textContent = history.length;
   $("s-spam").textContent = spamN;
   $("s-ham").textContent = history.length - spamN;
-  $("s-lat").textContent = lats.length ? Math.round(lats.reduce((a, b) => a + b, 0) / lats.length) + " ms" : "-";
+  $("s-lat").textContent = lats.length ? fmtMs(lats.reduce((a, b) => a + b, 0) / lats.length) : "-";
   const list = history.filter(h => filter === "all" || (filter === "spam") === h.spam);
   const body = $("rows"); body.textContent = "";
   list.forEach(h => {
     const tr = document.createElement("tr");
-    [new Date(h.time).toLocaleString("vi-VN"), h.text, h.spam ? "Spam" : "Bình thường", h.pct + "%", h.lat != null ? h.lat + " ms" : "-"]
+    [new Date(h.time).toLocaleString("vi-VN"), h.text, h.spam ? "Spam" : "Bình thường", h.pct + "%", h.lat != null ? fmtMs(h.lat) : "-"]
       .forEach((v, i) => {
         const td = document.createElement("td"); td.textContent = v;
         if (i === 1) td.className = "msg";
@@ -402,7 +404,7 @@ $("clear").addEventListener("click", () => { history = []; saveHistory(); render
 $("csv").addEventListener("click", () => {
   if (!history.length) return;
   const q = v => '"' + String(v).replace(/"/g, '""') + '"';
-  const lines = ["time,text,label,confidence,latency_ms"].concat(history.map(h =>
+  const lines = ["time,text,label,confidence,processing_time_ms"].concat(history.map(h =>
     [new Date(h.time).toISOString(), q(h.text), h.spam ? "spam" : "ham", h.pct / 100, h.lat != null ? h.lat : ""].join(",")));
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob(["\ufeff" + lines.join("\n")], { type: "text/csv;charset=utf-8" }));
